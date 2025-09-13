@@ -1,0 +1,78 @@
+name: CI Docker PHP  # Nome do workflow no GitHub Actions
+
+on: [push, pull_request]  # Dispara o workflow em todo push/PR
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest  # Roda em máquina Ubuntu fornecida pelo GitHub
+
+    services:
+      mysql:  # Serviço extra: instância do MySQL para nossos testes
+        image: mysql:8.3
+        env:
+          MYSQL_ROOT_PASSWORD: minhaSenhaSegura   # Senha do root
+          MYSQL_DATABASE: sistemaphp              # Nome do banco a ser criado
+        ports:
+          - 3306:3306                            # Expõe a porta
+        options: >-                              # Aguarda até o banco estar saudável
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4                # Baixa o código do repositório
+
+      - name: Rodar Docker Compose
+        run: docker-compose up -d --build        # Sobe containers do projeto em modo detached e faz rebuild
+
+      - name: Esperar web subir
+        run: |                                  # Loop: tenta acessar o sistema web até ele responder ou acabar tentativas
+          for i in {1..15}; do
+            if curl -s http://localhost:8080 > /dev/null; then 
+              echo "Sistema está respondendo"; 
+              break; 
+            fi; 
+            echo "Aguardando container web..."; 
+            sleep 5; 
+          done
+
+      - name: Verificar página inicial (teste automático)
+        run: |                                  # Teste simples de smoke: página inicial contém termo esperado?
+          curl -sSf http://localhost:8080 | grep -qi "sua-palavra-chave-ou-título" 
+          # Substitua acima por uma palavra/texto presente na sua página inicial do sistema
+
+      - name: Instalar dependências para análise de código
+        run: |                                  # Instala PHPStan e PHPCS dentro do seu container web para análise do código PHP
+          docker exec $(docker ps -qf "name=web") bash -c "apt-get update && apt-get install -y wget git unzip"
+          docker exec $(docker ps -qf "name=web") bash -c "wget https://github.com/phpstan/phpstan/releases/latest/download/phpstan.phar"
+          docker exec $(docker ps -qf "name=web") bash -c "wget https://github.com/squizlabs/PHP_CodeSniffer/releases/download/3.7.1/phpcs.phar -O phpcs.phar"
+
+      - name: Rodar PHPStan (análise estática)
+        run: |                                  # Análise estática de código PHP para encontrar possíveis bugs
+          docker exec $(docker ps -qf "name=web") bash -c "php phpstan.phar analyse /var/www/html --level=0 --error-format=table > /var/www/html/phpstan-report.txt"
+
+      - name: Rodar PHPCS (Padrão de Código)
+        run: |                                  # Análise de aderência ao padrão PSR-12 (boas práticas de código PHP)
+          docker exec $(docker ps -qf "name=web") bash -c "php phpcs.phar --standard=PSR12 /var/www/html > /var/www/html/phpcs-report.txt"
+
+      - name: Copiar relatórios do container para a máquina host
+        run: |                                  # Move relatórios de dentro do container para disponível como artefato do workflow
+          docker cp $(docker ps -qf "name=web"):/var/www/html/phpstan-report.txt phpstan-report.txt
+          docker cp $(docker ps -qf "name=web"):/var/www/html/phpcs-report.txt phpcs-report.txt
+
+      - name: Upload Relatório PHPStan
+        uses: actions/upload-artifact@v4         # Disponibiliza o relatório phpstan para download via Actions
+        with:
+          name: phpstan-report
+          path: phpstan-report.txt
+
+      - name: Upload Relatório PHPCS
+        uses: actions/upload-artifact@v4         # Disponibiliza o relatório phpcs para download via Actions
+        with:
+          name: phpcs-report
+          path: phpcs-report.txt
+
+      - name: Fechar containers
+        run: docker-compose down                 # Encerra/limpa os containers usados nos testes

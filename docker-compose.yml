@@ -1,23 +1,27 @@
-version: '3.8'
-services:
-  web:
-    build: .
+version: '3.8'  # Indica a versão do Docker Compose usada no arquivo. Recomenda-se sempre a mais nova.
+
+services:       # Início da definição dos serviços (containers) do projeto
+
+  web:          # Serviço "web" - será o container do PHP + Apache/Nginx
+    build: .    # Cria a imagem a partir do Dockerfile existente na pasta atual (raiz do projeto)
     ports:
-      - "8080:80"
+      - "8080:80"   # Mapeia a porta 80 do container (web) para a porta 8080 do computador. Você acessa no navegador: http://localhost:8080
     depends_on:
-      - db
+      - db          # Indica que o serviço "web" só deve subir depois do serviço "db" (MySQL) estar pronto
     volumes:
-      - ./public:/var/www/html
-  db:
-    image: mysql:8.3
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: minhaSenhaSegura
-      MYSQL_DATABASE: sistemaphp
+      - ./public:/var/www/html    # Sincroniza a pasta local 'public' com a pasta padrão do servidor web no container, para facilitar o desenvolvimento
+
+  db:            # Serviço "db" - será o container do MySQL
+    image: mysql:8.3       # Usa a imagem oficial MySQL na versão 8.3
+    restart: always        # Define que o serviço irá reiniciar automaticamente se ocorrer algum problema
+    environment:           # Define variáveis de ambiente necessárias para o MySQL funcionar
+      MYSQL_ROOT_PASSWORD: minhaSenhaSegura    # Senha do usuário root (super-administrador) do banco de dados
+      MYSQL_DATABASE: sistemaphp               # Indica que ao iniciar será criado automaticamente o banco de dados "sistemaphp"
     ports:
-      - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-volumes:
-  db_data:
+      - "3306:3306"        # Mapeia a porta 3306 (banco de dados) do container para o computador, permitindo acesso externo
+    volumes:               # Volumes persistem dados e scripts
+      - db_data:/var/lib/mysql   # Volume nomeado "db_data" salva/persistem todos os dados do MySQL, ou seja, o banco NÃO será perdido com reinícios dos containers
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro   # Monta o arquivo local "init.sql" na pasta especial do MySQL para inicialização automática do banco; `:ro` significa "read only" (só leitura)
+
+volumes:       # Definição do volume nomeado
+  db_data:     # Cria/usa o volume persistente "db_data" que armazena os dados do MySQL mesmo após parar/remover os containers
