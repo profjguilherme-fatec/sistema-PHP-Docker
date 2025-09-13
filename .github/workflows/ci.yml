@@ -22,7 +22,12 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4                # Baixa o código do repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar Docker Compose CLI     # Instala o plugin do Docker Compose na VM do GitHub Actions
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin  
 
       - name: Rodar Docker Compose
         run: docker-compose up -d --build        # Sobe containers do projeto em modo detached e faz rebuild
