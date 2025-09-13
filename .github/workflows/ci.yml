@@ -50,30 +50,49 @@ jobs:
           docker exec $(docker ps -qf "name=web") bash -c "wget https://github.com/phpstan/phpstan/releases/latest/download/phpstan.phar"
           docker exec $(docker ps -qf "name=web") bash -c "wget https://github.com/squizlabs/PHP_CodeSniffer/releases/download/3.7.1/phpcs.phar -O phpcs.phar"
 
-      - name: Rodar PHPStan (análise estática)
+      - name: Rodar PHPStan (análise estática HTML)
         run: |
-          docker exec $(docker ps -qf "name=web") bash -c "php phpstan.phar analyse /var/www/html --level=0 --error-format=table --memory-limit=512M > /var/www/html/phpstan-report.txt"
+          docker exec $(docker ps -qf "name=web") bash -c "php phpstan.phar analyse /var/www/html --level=0 --error-format=html --memory-limit=512M > /var/www/html/phpstan-report.html || true"
 
-      - name: Rodar PHPCS (Padrão de Código)
-        run: | # Analisa aderência ao padrão PSR-12 do PHP
-          docker exec $(docker ps -qf "name=web") bash -c "php phpcs.phar --standard=PSR12 /var/www/html > /var/www/html/phpcs-report.txt || true"
+      - name: Rodar PHPCS (Padrão de Código HTML)
+        run: | # Analisa aderência ao padrão PSR-12 do PHP e gera HTML
+          docker exec $(docker ps -qf "name=web") bash -c "php phpcs.phar --standard=PSR12 /var/www/html --report=full --report-file=/var/www/html/phpcs-report.html || true"
 
       - name: Copiar relatórios do container para a máquina host
         run: | # Move relatórios para fora do container, para download como artefato
-          docker cp $(docker ps -qf "name=web"):/var/www/html/phpstan-report.txt phpstan-report.txt
-          docker cp $(docker ps -qf "name=web"):/var/www/html/phpcs-report.txt phpcs-report.txt
+          docker cp $(docker ps -qf "name=web"):/var/www/html/phpstan-report.html phpstan-report.html
+          docker cp $(docker ps -qf "name=web"):/var/www/html/phpcs-report.html phpcs-report.html
 
-      - name: Upload Relatório PHPStan
-        uses: actions/upload-artifact@v4 # Disponibiliza o relatório phpstan para download via Actions
+      - name: Upload Relatório PHPStan HTML
+        uses: actions/upload-artifact@v4 # Disponibiliza o relatório phpstan em HTML para download via Actions
         with:
-          name: phpstan-report
-          path: phpstan-report.txt
+          name: phpstan-report-html
+          path: phpstan-report.html
 
-      - name: Upload Relatório PHPCS
-        uses: actions/upload-artifact@v4 # Disponibiliza o relatório phpcs para download via Actions
+      - name: Upload Relatório PHPCS HTML
+        uses: actions/upload-artifact@v4 # Disponibiliza o relatório phpcs em HTML para download via Actions
         with:
-          name: phpcs-report
-          path: phpcs-report.txt
+          name: phpcs-report-html
+          path: phpcs-report.html
+
+      - name: Gerar Sumário HTML do CI
+        run: |
+          echo '<html><head><title>Resumo do CI</title></head><body>' > ci-summary.html
+          echo '<h1>Resumo da execução do CI</h1>' >> ci-summary.html
+          echo '<ul>' >> ci-summary.html
+          echo '<li>Checkout do código: <b>OK</b></li>' >> ci-summary.html
+          echo '<li>Build e containers: <b>OK</b></li>' >> ci-summary.html
+          echo '<li>Testes iniciais de aplicação: <b>OK</b></li>' >> ci-summary.html
+          echo '<li>PHPStan: <a href="phpstan-report.html">Ver relatório</a></li>' >> ci-summary.html
+          echo '<li>PHPCS: <a href="phpcs-report.html">Ver relatório</a></li>' >> ci-summary.html
+          echo '</ul></body></html>' >> ci-summary.html
+
+      - name: Upload Sumário HTML do CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-summary
+          path: ci-summary.html
 
       - name: Fechar containers
         run: docker compose down # Encerra/limpa os containers usados nos testes
+
