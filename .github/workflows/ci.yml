@@ -30,7 +30,7 @@ jobs:
           sudo apt-get install -y docker-compose-plugin  
 
       - name: Rodar Docker Compose
-        run: docker-compose up -d --build        # Sobe containers do projeto em modo detached e faz rebuild
+        run: docker compose up -d --build        # Sobe containers do projeto em modo detached e faz rebuild
 
       - name: Esperar web subir
         run: |                                  # Loop: tenta acessar o sistema web até ele responder ou acabar tentativas
@@ -80,4 +80,4 @@ jobs:
           path: phpcs-report.txt
 
       - name: Fechar containers
-        run: docker-compose down                 # Encerra/limpa os containers usados nos testes
+        run: docker compose down                 # Encerra/limpa os containers usados nos testes
