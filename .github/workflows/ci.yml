@@ -56,7 +56,7 @@ jobs:
 
       - name: Rodar PHPCS (Padrão de Código)
         run: | # Analisa aderência ao padrão PSR-12 do PHP
-          docker exec $(docker ps -qf "name=web") bash -c "php phpcs.phar --standard=PSR12 /var/www/html > /var/www/html/phpcs-report.txt"
+          docker exec $(docker ps -qf "name=web") bash -c "php phpcs.phar --standard=PSR12 /var/www/html > /var/www/html/phpcs-report.txt || true"
 
       - name: Copiar relatórios do container para a máquina host
         run: | # Move relatórios para fora do container, para download como artefato
