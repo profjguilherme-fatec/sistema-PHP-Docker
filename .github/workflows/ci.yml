@@ -41,7 +41,7 @@ jobs:
 
       - name: Verificar página inicial (teste automático)
         run: | # Teste simples: pede página inicial e busca por termo esperado
-          curl -sSf http://localhost:8080 | grep -qi "sua-palavra-chave-ou-título"
+          curl -sSf http://localhost:8080 | grep -qi "Sistema PHP + Docker"
           # Substitua acima por uma palavra/texto presente na tela inicial do sistema
 
       - name: Instalar dependências para análise de código
