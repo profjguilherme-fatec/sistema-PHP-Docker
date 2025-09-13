@@ -51,8 +51,8 @@ jobs:
           docker exec $(docker ps -qf "name=web") bash -c "wget https://github.com/squizlabs/PHP_CodeSniffer/releases/download/3.7.1/phpcs.phar -O phpcs.phar"
 
       - name: Rodar PHPStan (análise estática)
-        run: | # Analisa código PHP para encontrar possíveis bugs
-          docker exec $(docker ps -qf "name=web") bash -c "php phpstan.phar analyse /var/www/html --level=0 --error-format=table > /var/www/html/phpstan-report.txt"
+        run: |
+          docker exec $(docker ps -qf "name=web") bash -c "php phpstan.phar analyse /var/www/html --level=0 --error-format=table --memory-limit=512M > /var/www/html/phpstan-report.txt"
 
       - name: Rodar PHPCS (Padrão de Código)
         run: | # Analisa aderência ao padrão PSR-12 do PHP
