@@ -51,7 +51,7 @@ jobs:
           docker exec $(docker ps -qf "name=web") bash -c "wget https://github.com/squizlabs/PHP_CodeSniffer/releases/download/3.7.1/phpcs.phar -O phpcs.phar"
 
       - name: Rodar PHPStan (análise estática HTML)
-        run: |
+        run: | # Gera relatório HTML de análise estática
           docker exec $(docker ps -qf "name=web") bash -c "php phpstan.phar analyse /var/www/html --level=0 --error-format=html --memory-limit=512M > /var/www/html/phpstan-report.html || true"
 
       - name: Rodar PHPCS (Padrão de Código HTML)
@@ -59,40 +59,69 @@ jobs:
           docker exec $(docker ps -qf "name=web") bash -c "php phpcs.phar --standard=PSR12 /var/www/html --report=full --report-file=/var/www/html/phpcs-report.html || true"
 
       - name: Copiar relatórios do container para a máquina host
-        run: | # Move relatórios para fora do container, para download como artefato
+        run: | # Move relatórios para fora do container
           docker cp $(docker ps -qf "name=web"):/var/www/html/phpstan-report.html phpstan-report.html
           docker cp $(docker ps -qf "name=web"):/var/www/html/phpcs-report.html phpcs-report.html
 
-      - name: Upload Relatório PHPStan HTML
-        uses: actions/upload-artifact@v4 # Disponibiliza o relatório phpstan em HTML para download via Actions
-        with:
-          name: phpstan-report-html
-          path: phpstan-report.html
-
-      - name: Upload Relatório PHPCS HTML
-        uses: actions/upload-artifact@v4 # Disponibiliza o relatório phpcs em HTML para download via Actions
-        with:
-          name: phpcs-report-html
-          path: phpcs-report.html
-
-      - name: Gerar Sumário HTML do CI
+      - name: Gerar Sumário HTML do CI incluindo relatórios
         run: |
-          echo '<html><head><title>Resumo do CI</title></head><body>' > ci-summary.html
-          echo '<h1>Resumo da execução do CI</h1>' >> ci-summary.html
-          echo '<ul>' >> ci-summary.html
-          echo '<li>Checkout do código: <b>OK</b></li>' >> ci-summary.html
-          echo '<li>Build e containers: <b>OK</b></li>' >> ci-summary.html
-          echo '<li>Testes iniciais de aplicação: <b>OK</b></li>' >> ci-summary.html
-          echo '<li>PHPStan: <a href="phpstan-report.html">Ver relatório</a></li>' >> ci-summary.html
-          echo '<li>PHPCS: <a href="phpcs-report.html">Ver relatório</a></li>' >> ci-summary.html
-          echo '</ul></body></html>' >> ci-summary.html
+          echo '<!DOCTYPE html><html><head>
+          <meta charset="utf-8">
+          <title>Resumo do CI</title>
+          <style>
+            body { font-family: Arial, sans-serif; background: #F9FAFB; margin: 2em;}
+            .ok { color: #29ab34; }
+            .fail { color: #E63946; }
+            .step { font-size: 1.1em; margin-bottom: 0.5em;}
+            details {margin-bottom: 1.5em;}
+            pre, code {font-size: 0.95em; background: #eee; padding: 1em; border-radius: 6px; overflow-x: auto;}
+            h2, h3 { margin-top: 2em;}
+          </style>
+          </head><body>
+          <h1>⚙️ Resumo da execução do CI</h1>
+          <ul>
+            <li class="step">📁 <span class="ok">Checkout do código: OK</span></li>
+            <li class="step">🐳 <span class="ok">Build e containers: OK</span></li>
+            <li class="step">🕸️ <span class="ok">Testes iniciais de aplicação: OK</span></li>
+            <li class="step">🔎 PHPStan: <span class="ok">Executado</span></li>
+            <li class="step">🎯 PHPCS: <span class="ok">Executado</span></li>
+          </ul>
 
-      - name: Upload Sumário HTML do CI
+          <details open>
+            <summary><b>🔎 PHPStan Resultados (clique para expandir)</b></summary>
+            ' > ci-summary.html
+
+          if [ -f phpstan-report.html ]; then
+            echo '<iframe src="phpstan-report.html" style="width:100%;height:400px;border:1px solid #aaa;background:#fff;"></iframe>' >> ci-summary.html
+          else
+            echo '<p style="color:red;">Arquivo phpstan-report.html não encontrado.</p>' >> ci-summary.html
+          fi
+
+          echo '</details>
+
+          <details>
+            <summary><b>🎯 PHPCS Resultados (clique para expandir)</b></summary>
+            ' >> ci-summary.html
+
+          if [ -f phpcs-report.html ]; then
+            echo '<iframe src="phpcs-report.html" style="width:100%;height:400px;border:1px solid #aaa;background:#fff;"></iframe>' >> ci-summary.html
+          else
+            echo '<p style="color:red;">Arquivo phpcs-report.html não encontrado.</p>' >> ci-summary.html
+          fi
+
+          echo '</details>
+          <p style="margin-top:4em;font-size:0.93em;color:#888">🚀 <i>Este relatório foi gerado automaticamente pela pipeline do GitHub Actions</i></p>
+          </body></html>' >> ci-summary.html
+        shell: bash
+
+      - name: Upload relatório resumido e completos
         uses: actions/upload-artifact@v4
         with:
-          name: ci-summary
-          path: ci-summary.html
+          name: ci-reports-html
+          path: |
+            ci-summary.html
+            phpstan-report.html
+            phpcs-report.html
 
       - name: Fechar containers
         run: docker compose down # Encerra/limpa os containers usados nos testes
-
